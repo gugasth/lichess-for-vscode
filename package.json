@@ -1,0 +1,102 @@
+{
+  "name": "lichess-for-vscode",
+  "displayName": "Lichess for VS Code",
+  "description": "Play Lichess puzzles and games inside VS Code — chess while you code",
+  "version": "0.1.0",
+  "publisher": "gugasth",
+  "license": "GPL-3.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "lichess",
+    "chess",
+    "puzzles",
+    "games"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "lichess.openBoard",
+        "title": "Lichess: Open Board",
+        "icon": "$(symbol-misc)"
+      },
+      {
+        "command": "lichess.dailyPuzzle",
+        "title": "Lichess: Daily Puzzle"
+      },
+      {
+        "command": "lichess.randomPuzzle",
+        "title": "Lichess: Random Puzzle"
+      },
+      {
+        "command": "lichess.playAI",
+        "title": "Lichess: Play vs AI"
+      },
+      {
+        "command": "lichess.seekGame",
+        "title": "Lichess: Find Opponent"
+      },
+      {
+        "command": "lichess.login",
+        "title": "Lichess: Login"
+      },
+      {
+        "command": "lichess.logout",
+        "title": "Lichess: Logout"
+      },
+      {
+        "command": "lichess.showGames",
+        "title": "Lichess: My Games"
+      }
+    ],
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "lichess-panel",
+          "title": "Lichess",
+          "icon": "media/chess-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "lichess-panel": [
+        {
+          "type": "webview",
+          "id": "lichess.sidebar",
+          "name": "Lichess"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "lichess.openBoard",
+          "when": "view == lichess.sidebar",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.js --production",
+    "watch": "node esbuild.js --watch",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@lichess-org/chessground": "^10.1.1",
+    "chess.js": "^1.0.0-beta.8"
+  }
+}
