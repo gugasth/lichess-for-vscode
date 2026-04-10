@@ -714,7 +714,24 @@ function doShowHint() {
 
 function doShowSolution() {
   if (puzzleComplete) { return; }
-  for (let i = puzzleMoveIndex; i < puzzleSolution.length; i++) {
+
+  // Hide buttons immediately to prevent double-click
+  document.getElementById('hint-btn')!.classList.add('hidden');
+  document.getElementById('solution-btn')!.classList.add('hidden');
+  setStatus('Showing solution...', 'info');
+
+  // Play remaining moves one by one with animation
+  let i = puzzleMoveIndex;
+  function playNextMove() {
+    if (i >= puzzleSolution.length) {
+      puzzleMoveIndex = puzzleSolution.length;
+      puzzleComplete = true;
+      updateMoveList();
+      setStatus('Solution shown — explore freely', 'info');
+      enterExplorationMode();
+      return;
+    }
+
     const uci = puzzleSolution[i];
     const from = uci.slice(0, 2) as Square;
     const to = uci.slice(2, 4) as Square;
@@ -723,16 +740,23 @@ function doShowSolution() {
       chess.move({ from, to, promotion });
       positionHistory.push(chess.fen());
       historyIndex = positionHistory.length - 1;
-    } catch { break; }
+    } catch {
+      // Skip broken move, finish
+      puzzleMoveIndex = puzzleSolution.length;
+      puzzleComplete = true;
+      updateBoard();
+      updateMoveList();
+      enterExplorationMode();
+      return;
+    }
+    puzzleMoveIndex = i + 1;
+    updateBoard();
+    updateMoveList();
+    i++;
+    setTimeout(playNextMove, 1000);
   }
-  puzzleMoveIndex = puzzleSolution.length;
-  puzzleComplete = true;
-  updateBoard();
-  updateMoveList();
-  setStatus('Solution shown — explore freely', 'info');
-  document.getElementById('hint-btn')!.classList.add('hidden');
-  document.getElementById('solution-btn')!.classList.add('hidden');
-  enterExplorationMode();
+
+  playNextMove();
 }
 
 // --- Event delegation for all buttons ---
