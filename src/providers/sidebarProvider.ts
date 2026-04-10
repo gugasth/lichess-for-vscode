@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { LichessApi, GameFullEvent, GameStateEvent, LichessPuzzle } from '../api/lichessApi';
 import { LichessAuth } from '../auth/lichessAuth';
+import { LocalEngine } from '../engine/localEngine';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'lichess.sidebar';
@@ -10,6 +11,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   private currentGameStream: { abort: () => void } | undefined;
   private playerColor: 'white' | 'black' = 'white';
   private myUsername: string | undefined;
+  private localEngine: LocalEngine = new LocalEngine();
 
   constructor(
     private extensionUri: vscode.Uri,
@@ -47,6 +49,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.onDidDispose(() => {
       this.stopGameStream();
+      this.localEngine.dispose();
     });
   }
 
@@ -236,6 +239,27 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         break;
       case 'requestPlayAI':
         await this.promptAndPlayAI();
+        break;
+      case 'requestCloudEval':
+        try {
+          const result = await this.localEngine.evaluate(msg.fen, 12);
+          if (result) {
+            this.postMessage({
+              type: 'cloudEval',
+              data: {
+                fen: msg.fen,
+                pvs: [{
+                  cp: result.cp,
+                  mate: result.mate,
+                  moves: result.moves || '',
+                }],
+              },
+              fen: msg.fen,
+            });
+          }
+        } catch {
+          this.postMessage({ type: 'cloudEval', data: null, fen: msg.fen });
+        }
         break;
       case 'login':
         await this.auth.login();
@@ -486,6 +510,45 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     .welcome h2 { margin-bottom: 8px; font-size: 16px; }
     .welcome p { margin-bottom: 12px; opacity: 0.8; font-size: 12px; line-height: 1.5; }
 
+    /* --- Eval bar --- */
+    .eval-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 24px;
+      flex-shrink: 0;
+      margin-right: 4px;
+    }
+    .eval-bar-inner {
+      flex: 1;
+      width: 100%;
+      background: #333;
+      border-radius: 3px;
+      position: relative;
+      overflow: hidden;
+    }
+    .eval-fill {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 50%;
+      background: #f0f0f0;
+      transition: height 0.3s ease;
+    }
+    .eval-text {
+      font-size: 10px;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 2px;
+      white-space: nowrap;
+    }
+
+    /* --- Active toggle --- */
+    .active-toggle {
+      background: #1a5a1a !important;
+      color: #4caf50 !important;
+    }
+
     .hidden { display: none !important; }
   </style>
 </head>
@@ -527,7 +590,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       <span class="clock" id="top-clock">--:--</span>
     </div>
 
-    <div class="board-container" id="board-container"></div>
+    <div style="display:flex;align-items:stretch;width:100%;gap:0;">
+      <div id="eval-bar" class="eval-bar hidden">
+        <div class="eval-bar-inner">
+          <div id="eval-fill" class="eval-fill"></div>
+        </div>
+        <span id="eval-text" class="eval-text"></span>
+      </div>
+      <div class="board-container" id="board-container"></div>
+    </div>
 
     <div id="bottom-player" class="player-bar hidden">
       <span class="name" id="bottom-name">-</span>
@@ -547,6 +618,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       <button data-action="nextPuzzle" class="primary">Next</button>
     </div>
 
+    <div id="exploration-controls" class="game-controls hidden">
+      <button data-action="explorationUndo" id="undo-btn" title="Left arrow">&#x25C0;</button>
+      <button data-action="explorationRedo" id="redo-btn" title="Right arrow">&#x25B6;</button>
+      <button data-action="analysis" id="analysis-btn">Engine: OFF</button>
+      <button data-action="nextPuzzle" class="primary">Next</button>
+    </div>
+
     <div class="move-list" id="move-list"></div>
   </div>
 
@@ -557,7 +635,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     function resizeBoard() {
       var el = document.getElementById('board-container');
       if (!el) return;
-      var w = document.body.clientWidth - 16;
+      var evalBar = document.getElementById('eval-bar');
+      var evalWidth = (evalBar && !evalBar.classList.contains('hidden')) ? 28 : 0;
+      var w = document.body.clientWidth - 16 - evalWidth;
       var size = Math.floor(Math.min(w, 600));
       size = Math.max(120, size);
       if (el._lastSize === size) return;

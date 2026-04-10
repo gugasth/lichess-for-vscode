@@ -25,6 +25,14 @@ let puzzleMoveIndex = 0;
 let puzzleFailed = false;
 let puzzleComplete = false;
 
+// Position history & exploration state
+let positionHistory: string[] = []; // All FENs from puzzle start
+let historyIndex = -1;
+let explorationMode = false;
+let analysisEnabled = false;
+let currentEvalText = '';
+let lastRequestedFen = '';
+
 // Game state
 let gameId: string | undefined;
 
@@ -78,6 +86,9 @@ window.addEventListener('message', (event) => {
     case 'authState':
       handleAuthState(msg.data);
       break;
+    case 'cloudEval':
+      handleCloudEval(msg.data, msg.fen);
+      break;
   }
 });
 
@@ -117,6 +128,11 @@ function handlePuzzle(data: PuzzleData) {
   puzzleMoveIndex = 0;
   puzzleSolution = data.puzzle.solution;
   gameId = undefined;
+  explorationMode = false;
+  analysisEnabled = false;
+  positionHistory = [];
+  historyIndex = -1;
+  currentEvalText = '';
 
   showGameView();
 
@@ -126,6 +142,10 @@ function handlePuzzle(data: PuzzleData) {
   for (const m of moves) {
     try { chess.move(m); } catch { break; }
   }
+
+  // Record the starting position of the puzzle
+  positionHistory = [chess.fen()];
+  historyIndex = 0;
 
   // The Lichess API PGN already includes the opponent's trigger move.
   // After replaying the PGN, it's the PLAYER's turn.
@@ -144,6 +164,11 @@ function handlePuzzle(data: PuzzleData) {
   document.getElementById('puzzle-controls')!.classList.remove('hidden');
   document.getElementById('hint-btn')!.classList.remove('hidden');
   document.getElementById('solution-btn')!.classList.remove('hidden');
+  document.getElementById('exploration-controls')!.classList.add('hidden');
+  document.getElementById('eval-bar')!.classList.add('hidden');
+  const analysisBtn = document.getElementById('analysis-btn')!;
+  analysisBtn.classList.remove('active-toggle');
+  analysisBtn.textContent = 'Engine: OFF';
 
   // Hide player bars (no clocks in puzzles)
   document.getElementById('top-player')!.classList.add('hidden');
@@ -171,6 +196,8 @@ function playPuzzleOpponentMove() {
   }
 
   puzzleMoveIndex++;
+  positionHistory.push(chess.fen());
+  historyIndex = positionHistory.length - 1;
   updateBoard();
 
   // Check if puzzle is done (odd number of solution moves means it ends on opponent's move)
@@ -182,6 +209,7 @@ function playPuzzleOpponentMove() {
 function onPuzzleUserMove(from: string, to: string, promotion?: string) {
   if (puzzleComplete || puzzleFailed) { return; }
   if (puzzleMoveIndex >= puzzleSolution.length) { return; }
+  if (!isViewingLatest()) { return; }
 
   const expectedUci = puzzleSolution[puzzleMoveIndex];
   const actualUci = from + to + (promotion || '');
@@ -189,6 +217,8 @@ function onPuzzleUserMove(from: string, to: string, promotion?: string) {
   if (actualUci === expectedUci) {
     // Correct!
     puzzleMoveIndex++;
+    positionHistory.push(chess.fen());
+    historyIndex = positionHistory.length - 1;
     updateBoard();
 
     if (puzzleMoveIndex >= puzzleSolution.length) {
@@ -212,12 +242,10 @@ function onPuzzleUserMove(from: string, to: string, promotion?: string) {
 
 function puzzleSuccess() {
   puzzleComplete = true;
-  setStatus('Puzzle solved!', 'success');
+  setStatus('Puzzle solved! Explore freely or try next.', 'success');
   document.getElementById('hint-btn')!.classList.add('hidden');
   document.getElementById('solution-btn')!.classList.add('hidden');
-
-  // Disable moves
-  cg?.set({ movable: { color: undefined } });
+  enterExplorationMode();
 }
 
 // --- Game mode ---
@@ -382,9 +410,14 @@ function updateBoard() {
     }
   }
 
-  const canMove = mode === 'game'
-    ? (turnColor === playerColor)
-    : (mode === 'puzzle' && !puzzleComplete && !puzzleFailed && turnColor === playerColor);
+  let canMoveColor: Color | undefined;
+  if (explorationMode) {
+    canMoveColor = turnColor;
+  } else if (mode === 'game') {
+    canMoveColor = turnColor === playerColor ? playerColor : undefined;
+  } else if (mode === 'puzzle' && !puzzleComplete && !puzzleFailed && isViewingLatest() && turnColor === playerColor) {
+    canMoveColor = playerColor;
+  }
 
   cg.set({
     fen,
@@ -394,8 +427,8 @@ function updateBoard() {
     check: inCheck ? turnColor : undefined as any,
     movable: {
       free: false,
-      color: canMove ? playerColor : undefined,
-      dests: canMove ? dests : new Map(),
+      color: canMoveColor,
+      dests: canMoveColor ? dests : new Map(),
     },
   });
 }
@@ -410,7 +443,6 @@ function onUserMove(orig: Key, dest: Key) {
     ((piece.color === 'w' && to[1] === '8') || (piece.color === 'b' && to[1] === '1'));
 
   if (isPromotion) {
-    // Default to queen promotion
     const promotion = 'q';
     try {
       chess.move({ from, to, promotion });
@@ -419,7 +451,9 @@ function onUserMove(orig: Key, dest: Key) {
       return;
     }
 
-    if (mode === 'puzzle') {
+    if (explorationMode) {
+      onExplorationMove(from, to, promotion);
+    } else if (mode === 'puzzle') {
       onPuzzleUserMove(from, to, promotion);
     } else if (mode === 'game') {
       vscode.postMessage({ type: 'move', move: `${from}${to}${promotion}` });
@@ -432,7 +466,9 @@ function onUserMove(orig: Key, dest: Key) {
       return;
     }
 
-    if (mode === 'puzzle') {
+    if (explorationMode) {
+      onExplorationMove(from, to);
+    } else if (mode === 'puzzle') {
       onPuzzleUserMove(from, to);
     } else if (mode === 'game') {
       vscode.postMessage({ type: 'move', move: `${from}${to}` });
@@ -551,13 +587,127 @@ function clearStatus() {
   document.getElementById('status')!.classList.add('hidden');
 }
 
+// --- Navigation & Exploration ---
+
+function navigateBack() {
+  if (historyIndex <= 0) { return; }
+  historyIndex--;
+  chess = new Chess(positionHistory[historyIndex]);
+  updateBoard();
+  updateMoveList();
+  if (analysisEnabled) { requestCloudEval(); }
+}
+
+function navigateForward() {
+  if (historyIndex >= positionHistory.length - 1) { return; }
+  historyIndex++;
+  chess = new Chess(positionHistory[historyIndex]);
+  updateBoard();
+  updateMoveList();
+  if (analysisEnabled) { requestCloudEval(); }
+}
+
+function isViewingLatest(): boolean {
+  return historyIndex === positionHistory.length - 1;
+}
+
+function enterExplorationMode() {
+  explorationMode = true;
+  // Snap to latest position
+  historyIndex = positionHistory.length - 1;
+  chess = new Chess(positionHistory[historyIndex]);
+  document.getElementById('puzzle-controls')!.classList.add('hidden');
+  document.getElementById('exploration-controls')!.classList.remove('hidden');
+  updateBoard();
+  if (analysisEnabled) { requestCloudEval(); }
+}
+
+function onExplorationMove(from: string, to: string, promotion?: string) {
+  // Truncate any forward history when making a new move from a past position
+  positionHistory = positionHistory.slice(0, historyIndex + 1);
+  positionHistory.push(chess.fen());
+  historyIndex = positionHistory.length - 1;
+  updateBoard();
+  updateMoveList();
+  if (analysisEnabled) { requestCloudEval(); }
+}
+
+function toggleAnalysis() {
+  analysisEnabled = !analysisEnabled;
+  const btn = document.getElementById('analysis-btn')!;
+  btn.classList.toggle('active-toggle', analysisEnabled);
+  btn.textContent = analysisEnabled ? 'Engine: ON' : 'Engine: OFF';
+
+  const evalBar = document.getElementById('eval-bar')!;
+  const evalText = document.getElementById('eval-text')!;
+
+  if (analysisEnabled) {
+    evalBar.classList.remove('hidden');
+    requestCloudEval();
+  } else {
+    evalBar.classList.add('hidden');
+    evalText.textContent = '';
+    currentEvalText = '';
+    cg?.setAutoShapes([]);
+  }
+}
+
+function requestCloudEval() {
+  const fen = chess.fen();
+  lastRequestedFen = fen;
+  vscode.postMessage({ type: 'requestCloudEval', fen, multiPv: 1 });
+}
+
+function handleCloudEval(data: any, fen: string) {
+  if (!analysisEnabled) { return; }
+  if (lastRequestedFen !== fen) { return; } // Stale response
+
+  const evalText = document.getElementById('eval-text')!;
+  const evalFill = document.getElementById('eval-fill')!;
+
+  if (!data || !data.pvs || data.pvs.length === 0) {
+    evalText.textContent = 'No eval available';
+    evalFill.style.height = '50%';
+    currentEvalText = '';
+    return;
+  }
+
+  const pv = data.pvs[0];
+  let score: string;
+  let whiteAdvantage: number; // 0 to 1, where 1 = white winning completely
+
+  if (pv.mate !== undefined && pv.mate !== null) {
+    score = `M${pv.mate > 0 ? '+' : ''}${pv.mate}`;
+    whiteAdvantage = pv.mate > 0 ? 1 : 0;
+  } else {
+    const cp = pv.cp || 0;
+    score = (cp >= 0 ? '+' : '') + (cp / 100).toFixed(1);
+    // Sigmoid-like mapping: cp to percentage
+    whiteAdvantage = 1 / (1 + Math.pow(10, -cp / 400));
+  }
+
+  currentEvalText = score;
+  evalText.textContent = score;
+  evalFill.style.height = `${(whiteAdvantage * 100).toFixed(1)}%`;
+
+  // Show best move arrow
+  if (pv.moves) {
+    const bestMove = pv.moves.split(' ')[0];
+    if (bestMove && bestMove.length >= 4) {
+      const from = bestMove.slice(0, 2) as Key;
+      const to = bestMove.slice(2, 4) as Key;
+      cg?.setAutoShapes([{ orig: from, dest: to, brush: 'blue' }]);
+    }
+  }
+}
+
 // --- Actions ---
 
 function doShowHint() {
   if (puzzleMoveIndex >= puzzleSolution.length) { return; }
   const nextMove = puzzleSolution[puzzleMoveIndex];
   const from = nextMove.slice(0, 2) as Key;
-  cg?.setShapes([{ orig: from, brush: 'green' }]);
+  cg?.setAutoShapes([{ orig: from, brush: 'green' }]);
   setStatus(`Hint: move the piece on ${from}`, 'info');
 }
 
@@ -568,16 +718,20 @@ function doShowSolution() {
     const from = uci.slice(0, 2) as Square;
     const to = uci.slice(2, 4) as Square;
     const promotion = uci.length > 4 ? (uci[4] as 'q' | 'r' | 'b' | 'n') : undefined;
-    try { chess.move({ from, to, promotion }); } catch { break; }
+    try {
+      chess.move({ from, to, promotion });
+      positionHistory.push(chess.fen());
+      historyIndex = positionHistory.length - 1;
+    } catch { break; }
   }
   puzzleMoveIndex = puzzleSolution.length;
   puzzleComplete = true;
   updateBoard();
   updateMoveList();
-  setStatus('Solution shown', 'info');
+  setStatus('Solution shown — explore freely', 'info');
   document.getElementById('hint-btn')!.classList.add('hidden');
   document.getElementById('solution-btn')!.classList.add('hidden');
-  cg?.set({ movable: { color: undefined } });
+  enterExplorationMode();
 }
 
 // --- Event delegation for all buttons ---
@@ -595,8 +749,24 @@ document.addEventListener('click', (e) => {
     case 'draw': vscode.postMessage({ type: 'draw' }); break;
     case 'hint': doShowHint(); break;
     case 'solution': doShowSolution(); break;
+    case 'analysis': toggleAnalysis(); break;
+    case 'explorationUndo': navigateBack(); break;
+    case 'explorationRedo': navigateForward(); break;
     case 'login': vscode.postMessage({ type: 'login' }); break;
     case 'logout': vscode.postMessage({ type: 'logout' }); break;
+  }
+});
+
+// --- Keyboard navigation ---
+
+document.addEventListener('keydown', (e) => {
+  if (mode !== 'puzzle') { return; }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    navigateBack();
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    navigateForward();
   }
 });
 

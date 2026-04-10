@@ -76,6 +76,17 @@ export type StreamEvent =
   | { type: 'challengeCanceled'; challenge: { id: string } }
   | { type: 'challengeDeclined'; challenge: { id: string } };
 
+export interface CloudEval {
+  fen: string;
+  knodes: number;
+  depth: number;
+  pvs: Array<{
+    moves: string;
+    cp?: number;
+    mate?: number;
+  }>;
+}
+
 export class LichessApi {
   constructor(private getToken: () => Promise<string | undefined>) {}
 
@@ -144,6 +155,16 @@ export class LichessApi {
       increment: String(increment),
       rated: String(rated),
     }, true);
+  }
+
+  // --- Analysis ---
+
+  async getCloudEval(fen: string, multiPv: number = 1): Promise<CloudEval | null> {
+    try {
+      return await this.get<CloudEval>(`/api/cloud-eval?fen=${encodeURIComponent(fen)}&multiPv=${multiPv}`);
+    } catch {
+      return null;
+    }
   }
 
   // --- Streaming ---

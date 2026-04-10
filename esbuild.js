@@ -24,6 +24,24 @@ function copyCss() {
   console.log('Copied chessground CSS assets.');
 }
 
+// Copy stockfish engine files to dist/engine/
+function copyStockfish() {
+  const outDir = path.join(__dirname, 'dist', 'engine');
+  fs.mkdirSync(outDir, { recursive: true });
+
+  const sfBin = path.join(__dirname, 'node_modules', 'stockfish', 'bin');
+  const files = ['stockfish-18-lite-single.js', 'stockfish-18-lite-single.wasm'];
+  for (const file of files) {
+    fs.copyFileSync(path.join(sfBin, file), path.join(outDir, file));
+  }
+  // Copy worker script
+  fs.copyFileSync(
+    path.join(__dirname, 'src', 'engine', 'worker.js'),
+    path.join(outDir, 'worker.js')
+  );
+  console.log('Copied Stockfish engine files.');
+}
+
 /** @type {import('esbuild').BuildOptions} */
 const extensionConfig = {
   entryPoints: ['src/extension.ts'],
@@ -57,6 +75,7 @@ async function main() {
     console.log('[watch] Build started...');
   } else {
     copyCss();
+    copyStockfish();
     await Promise.all([
       esbuild.build(extensionConfig),
       esbuild.build(webviewConfig),
