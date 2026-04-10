@@ -69,10 +69,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   public async loadRandomPuzzle() {
     this.revealView();
     try {
-      const loggedIn = await this.auth.isLoggedIn();
-      const puzzle = loggedIn
-        ? await this.api.getNextPuzzle()
-        : await this.api.getRandomPuzzle();
+      const puzzle = await this.api.getRandomPuzzle(this.lastPuzzleId);
       this.sendPuzzle(puzzle);
     } catch (e: any) {
       vscode.window.showErrorMessage(`Failed to load puzzle: ${e.message}`);
