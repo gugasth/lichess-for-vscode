@@ -352,6 +352,19 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       background: var(--vscode-button-secondaryBackground);
       color: var(--vscode-button-secondaryForeground);
     }
+    .login-btn {
+      width: 100%;
+      padding: 6px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+    }
+    .login-btn:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
 
     /* --- Buttons --- */
     .actions {
@@ -383,6 +396,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     .actions button.primary {
       background: var(--vscode-button-background);
       color: var(--vscode-button-foreground);
+    }
+    .actions button.primary:hover {
+      background: var(--vscode-button-hoverBackground);
     }
 
     /* --- Board --- */
@@ -424,11 +440,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       text-align: center;
     }
     .player-bar .clock.active {
-      background: #1a3a1a;
-      color: #4caf50;
+      background: var(--vscode-testing-iconPassed, #1a3a1a);
+      color: var(--vscode-charts-green, #4caf50);
     }
     .player-bar .clock.low {
-      color: #f44336;
+      color: var(--vscode-charts-red, #f44336);
     }
 
     /* --- Puzzle info --- */
@@ -453,8 +469,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       margin-top: 4px;
       width: 100%;
     }
-    .status-message.success { color: #4caf50; }
-    .status-message.failure { color: #f44336; }
+    .status-message.success { color: var(--vscode-charts-green, #4caf50); }
+    .status-message.failure { color: var(--vscode-charts-red, #f44336); }
     .status-message.info { color: var(--vscode-textLink-foreground); }
 
     /* --- Game controls --- */
@@ -475,9 +491,24 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       background: var(--vscode-button-secondaryBackground);
       color: var(--vscode-button-secondaryForeground);
     }
+    .game-controls button:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
+    .game-controls button.primary {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+    }
+    .game-controls button.primary:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
+    .game-controls button.nav-btn {
+      flex: 0;
+      min-width: 32px;
+      padding: 5px 10px;
+    }
     .game-controls button.danger {
-      background: #5a1a1a;
-      color: #f44336;
+      background: var(--vscode-inputValidation-errorBackground, #5a1a1a);
+      color: var(--vscode-charts-red, #f44336);
     }
 
     /* --- Move list --- */
@@ -522,7 +553,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     .eval-bar-inner {
       flex: 1;
       width: 100%;
-      background: #333;
+      background: var(--vscode-editor-background, #333);
+      border: 1px solid var(--vscode-widget-border, #444);
       border-radius: 3px;
       position: relative;
       overflow: hidden;
@@ -532,7 +564,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       bottom: 0;
       width: 100%;
       height: 50%;
-      background: #f0f0f0;
+      background: var(--vscode-foreground, #f0f0f0);
       transition: height 0.3s ease;
     }
     .eval-text {
@@ -545,8 +577,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     /* --- Active toggle --- */
     .active-toggle {
-      background: #1a5a1a !important;
-      color: #4caf50 !important;
+      background: var(--vscode-button-background) !important;
+      color: var(--vscode-button-foreground) !important;
     }
 
     .hidden { display: none !important; }
@@ -555,7 +587,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 <body>
   <div id="auth-bar" class="auth-bar">
     <div id="login-prompt">
-      <button data-action="login" class="primary" style="width:100%;padding:6px;border:none;border-radius:4px;cursor:pointer;font-size:12px;background:var(--vscode-button-background);color:var(--vscode-button-foreground);">Login to Lichess</button>
+      <button data-action="login" class="login-btn">Login to Lichess</button>
     </div>
     <div id="user-row" class="user-row hidden">
       <span class="name" id="username"></span>
@@ -566,7 +598,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   <div id="welcome">
     <h2 class="welcome">Lichess</h2>
     <div class="actions">
-      <button data-action="dailyPuzzle" class="primary">Daily Puzzle</button>
+      <button data-action="dailyPuzzle">Daily Puzzle</button>
       <button data-action="randomPuzzle">Random</button>
       <button data-action="playAI">vs AI</button>
     </div>
@@ -576,7 +608,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     <div class="actions">
       <button data-action="dailyPuzzle">Daily</button>
       <button data-action="randomPuzzle">Random</button>
-      <button data-action="playAI" class="primary">vs AI</button>
+      <button data-action="playAI">vs AI</button>
     </div>
 
     <div id="puzzle-info" class="puzzle-info hidden">
@@ -619,9 +651,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     </div>
 
     <div id="exploration-controls" class="game-controls hidden">
-      <button data-action="explorationUndo" id="undo-btn" title="Left arrow">&#x25C0;</button>
-      <button data-action="explorationRedo" id="redo-btn" title="Right arrow">&#x25B6;</button>
-      <button data-action="analysis" id="analysis-btn">Engine: OFF</button>
+      <button data-action="explorationUndo" id="undo-btn" class="nav-btn" title="Left arrow">&#x25C0;</button>
+      <button data-action="explorationRedo" id="redo-btn" class="nav-btn" title="Right arrow">&#x25B6;</button>
+      <button data-action="analysis" id="analysis-btn">Engine</button>
       <button data-action="nextPuzzle" class="primary">Next</button>
     </div>
 

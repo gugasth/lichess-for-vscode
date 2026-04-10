@@ -168,7 +168,7 @@ function handlePuzzle(data: PuzzleData) {
   document.getElementById('eval-bar')!.classList.add('hidden');
   const analysisBtn = document.getElementById('analysis-btn')!;
   analysisBtn.classList.remove('active-toggle');
-  analysisBtn.textContent = 'Engine: OFF';
+  analysisBtn.textContent = 'Engine';
   cg?.setAutoShapes([]);
 
   // Hide player bars (no clocks in puzzles)
@@ -637,7 +637,7 @@ function toggleAnalysis() {
   analysisEnabled = !analysisEnabled;
   const btn = document.getElementById('analysis-btn')!;
   btn.classList.toggle('active-toggle', analysisEnabled);
-  btn.textContent = analysisEnabled ? 'Engine: ON' : 'Engine: OFF';
+  btn.textContent = analysisEnabled ? 'Engine' : 'Engine';
 
   const evalBar = document.getElementById('eval-bar')!;
   const evalText = document.getElementById('eval-text')!;
