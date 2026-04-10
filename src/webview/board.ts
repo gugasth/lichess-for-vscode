@@ -169,6 +169,7 @@ function handlePuzzle(data: PuzzleData) {
   const analysisBtn = document.getElementById('analysis-btn')!;
   analysisBtn.classList.remove('active-toggle');
   analysisBtn.textContent = 'Engine: OFF';
+  cg?.setAutoShapes([]);
 
   // Hide player bars (no clocks in puzzles)
   document.getElementById('top-player')!.classList.add('hidden');
