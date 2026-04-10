@@ -432,6 +432,9 @@ function updateBoard() {
       dests: canMoveColor ? dests : new Map(),
     },
   });
+
+  // Keep Chessground coordinates in sync with container size
+  cg.redrawAll();
 }
 
 function onUserMove(orig: Key, dest: Key) {
@@ -637,7 +640,6 @@ function toggleAnalysis() {
   analysisEnabled = !analysisEnabled;
   const btn = document.getElementById('analysis-btn')!;
   btn.classList.toggle('active-toggle', analysisEnabled);
-  btn.textContent = analysisEnabled ? 'Engine' : 'Engine';
 
   const evalBar = document.getElementById('eval-bar')!;
   const evalText = document.getElementById('eval-text')!;
@@ -651,6 +653,14 @@ function toggleAnalysis() {
     currentEvalText = '';
     cg?.setAutoShapes([]);
   }
+
+  // Force board resize + redraw after eval bar toggle
+  setTimeout(() => {
+    const el = document.getElementById('board-container') as any;
+    if (el) { el._forceResize = true; }
+    (window as any).resizeBoard?.();
+    cg?.redrawAll();
+  }, 50);
 }
 
 function requestCloudEval() {

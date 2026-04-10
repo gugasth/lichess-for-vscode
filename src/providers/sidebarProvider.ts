@@ -652,6 +652,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
   <script nonce="${nonce}">
     var _resizeTimer;
+    window.resizeBoard = resizeBoard;
     function resizeBoard() {
       var el = document.getElementById('board-container');
       if (!el) return;
@@ -660,7 +661,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       var w = document.body.clientWidth - 16 - evalWidth;
       var size = Math.floor(Math.min(w, 600));
       size = Math.max(120, size);
-      if (el._lastSize === size) return;
+      if (el._lastSize === size && !el._forceResize) return;
+      el._forceResize = false;
       el._lastSize = size;
       el.style.width = size + 'px';
       el.style.height = size + 'px';
