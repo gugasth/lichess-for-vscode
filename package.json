@@ -6,6 +6,10 @@
   "publisher": "gugasth",
   "license": "GPL-3.0",
   "icon": "media/chess-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gugasth/lichess-for-vscode"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
