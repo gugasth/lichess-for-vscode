@@ -2,7 +2,7 @@
   "name": "lichess-for-vscode",
   "displayName": "Lichess for VS Code",
   "description": "Play Lichess puzzles and games inside VS Code — chess while you code",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "gugasth",
   "license": "GPL-3.0",
   "icon": "media/chess-icon.png",
