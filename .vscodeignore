@@ -5,3 +5,5 @@ node_modules/**
 tsconfig.json
 esbuild.js
 **/*.map
+.gstack/**
+scripts/**
