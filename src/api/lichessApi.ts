@@ -100,8 +100,14 @@ export class LichessApi {
     return this.get<LichessPuzzle>(`/api/puzzle/${id}`);
   }
 
-  async getNextPuzzle(): Promise<LichessPuzzle> {
-    return this.get<LichessPuzzle>('/api/puzzle/next', true);
+  async getNextPuzzle(afterId?: string): Promise<LichessPuzzle> {
+    const query = afterId ? `?after=${afterId}` : '';
+    return this.get<LichessPuzzle>(`/api/puzzle/next${query}`, true);
+  }
+
+  async getRandomPuzzle(afterId?: string): Promise<LichessPuzzle> {
+    const query = afterId ? `?after=${afterId}` : '';
+    return this.get<LichessPuzzle>(`/api/puzzle/next${query}`);
   }
 
   // --- Games ---

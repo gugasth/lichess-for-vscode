@@ -12,6 +12,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   private playerColor: 'white' | 'black' = 'white';
   private myUsername: string | undefined;
   private localEngine: LocalEngine = new LocalEngine();
+  private lastPuzzleId: string | undefined;
 
   constructor(
     private extensionUri: vscode.Uri,
@@ -69,12 +70,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     this.revealView();
     try {
       const loggedIn = await this.auth.isLoggedIn();
-      let puzzle: LichessPuzzle;
-      if (loggedIn) {
-        puzzle = await this.api.getNextPuzzle();
-      } else {
-        puzzle = await this.api.getDailyPuzzle();
-      }
+      const puzzle = loggedIn
+        ? await this.api.getNextPuzzle()
+        : await this.api.getRandomPuzzle();
       this.sendPuzzle(puzzle);
     } catch (e: any) {
       vscode.window.showErrorMessage(`Failed to load puzzle: ${e.message}`);
@@ -84,18 +82,10 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   public async loadNextPuzzle() {
     this.revealView();
     try {
-      // Fetch a random puzzle by generating a random ID range
-      const randomId = String(Math.floor(Math.random() * 300000) + 1).padStart(5, '0');
-      const puzzle = await this.api.getPuzzleById(randomId);
+      const puzzle = await this.api.getRandomPuzzle(this.lastPuzzleId);
       this.sendPuzzle(puzzle);
-    } catch {
-      // If random ID fails, fall back to daily
-      try {
-        const puzzle = await this.api.getDailyPuzzle();
-        this.sendPuzzle(puzzle);
-      } catch (e: any) {
-        vscode.window.showErrorMessage(`Failed to load puzzle: ${e.message}`);
-      }
+    } catch (e: any) {
+      vscode.window.showErrorMessage(`Failed to load puzzle: ${e.message}`);
     }
   }
 
@@ -160,6 +150,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   private sendPuzzle(puzzle: LichessPuzzle) {
     this.stopGameStream();
     this.currentGameId = undefined;
+    this.lastPuzzleId = puzzle.puzzle.id;
     this.postMessage({ type: 'puzzle', data: puzzle });
   }
 
