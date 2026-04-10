@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "publisher": "gugasth",
   "license": "GPL-3.0",
+  "icon": "media/chess-icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
